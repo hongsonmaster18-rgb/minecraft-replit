@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: transparent;
+      color: white;
+      font-size: 48px;
+      font-family: 'Arial', sans-serif;
+      font-weight: bold;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      letter-spacing: 2px;
+      word-spacing: 5px;
+      text-shadow:
+        -2px -2px 0 #000,
+         2px -2px 0 #000,
+        -2px  2px 0 #000,
+         2px  2px 0 #000;
+    }
+
+    .box {
+      position: relative;
+      display: inline-block;
+      padding: 2px 12px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+    .box span.line {
+      position: absolute;
+      border-radius: 2px;
+      background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, magenta, red);
+      background-size: 400%;
+      animation: rainbow 2s linear infinite;
+      box-shadow: 0 0 8px rgba(255,255,255,0.6);
+      filter: blur(0.5px);
+      display: none;
+      opacity: 0.8;
+    }
+    .box.active .line1,
+    .box.active .line2,
+    .box.active .line3,
+    .box.active .line4 { display: block; }
+    .line1 { top: 0; left: 0; width: 100%; height: 4px; animation-delay: 0s; }
+    .line2 { top: 0; right: 0; width: 4px; height: 100%; animation-delay: 0.5s; }
+    .line3 { bottom: 0; left: 0; width: 100%; height: 4px; animation-delay: 1s; }
+    .line4 { top: 0; left: 0; width: 4px; height: 100%; animation-delay: 1.5s; }
+
+    @keyframes rainbow {
+      0% { background-position: 0% 50%; opacity: 0.2; }
+      50% { background-position: 200% 50%; opacity: 1; }
+      100% { background-position: 400% 50%; opacity: 0.2; }
+    }
+
+    #winWrapper { display: inline-flex; align-items: baseline; }
+    #winCount { transition: color 0.3s ease; }
+    @keyframes shake {
+      0% { transform: translate(1px, 0); }
+      25% { transform: translate(-1px, 0); }
+      50% { transform: translate(1px, 0); }
+      75% { transform: translate(-1px, 0); }
+      100% { transform: translate(0, 0); }
+    }
+    .shake { animation: shake 0.3s; }
+
+    #timers {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      position: absolute;
+      top: 20px;
+      left: 20px;
+    }
+    .timerline {
+      display: flex;
+      align-items: baseline;
+      font-family: "Courier New", "Consolas", monospace;
+      font-size: 18px;
+      letter-spacing: 2px;
+      color: lime;
+      font-weight: bold;
+      height: 1.5em;
+      margin: 0;
+      padding: 0;
+      text-shadow:
+        -1px -1px 0 #000,
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+    }
+    .icon { font-size: 18px; margin-right: 4px; flex-shrink: 0; white-space: nowrap; }
+    .label { margin-right: 4px; min-width: 60px; }
+    .value { width: 50px; text-align: left; }
+  </style>
+</head>
+<body>
+
+  <div class="box" id="box">
+    <div id="winWrapper">
+      <span id="winCount">0</span><span>/5</span>
+    </div>
+    <span class="line line1"></span>
+    <span class="line line2"></span>
+    <span class="line line3"></span>
+    <span class="line line4"></span>
+  </div>
+
+  <div id="timers">
+    <div id="timemove" class="timerline" style="display:none">
+      <span class="icon">⏰</span><span class="label">Freeze:</span><span class="value" id="timemoveValue"></span>
+    </div>
+    <div id="countdown" class="timerline" style="display:none">
+      <span class="icon">⏰</span><span class="label">Drunk:</span><span class="value" id="countdownValue"></span>
+    </div>
+  </div>
+
+  <script>
+    let lastWinValue = null;
+    const winCountEl = document.getElementById('winCount');
+    const boxEl = document.getElementById('box');
+
+    async function updateWin() {
+      try {
+        const res = await fetch('/data');
+        if (!res.ok) return;
+        const data = await res.json();
+        const winValue = data.win ?? 0;
+
+        if (winValue !== lastWinValue) {
+          winCountEl.textContent = winValue;
+          winCountEl.classList.add('shake');
+          setTimeout(() => winCountEl.classList.remove('shake'), 300);
+          winCountEl.style.color = winValue < 0 ? 'red' : 'white';
+          lastWinValue = winValue;
+        }
+        boxEl.classList.toggle('active', winValue === 5);
+      } catch (err) {
+        console.error("Không thể cập nhật win:", err);
+      }
+    }
+    setInterval(updateWin, 1000);
+
+    let endTime = 0, endTimeMove = 0;
+    const countdownValueEl = document.getElementById("countdownValue");
+    const moveValueEl = document.getElementById("timemoveValue");
+    const moveLineEl = document.getElementById("timemove");
+    const drunkLineEl = document.getElementById("countdown");
+
+    function updateCountdown() {
+      const now = Date.now();
+      const drunkLeft = Math.max(0, Math.ceil((endTime - now) / 1000));
+      const moveLeft = Math.max(0, Math.ceil((endTimeMove - now) / 1000));
+
+      if (drunkLeft > 0) {
+        drunkLineEl.style.display = "flex";
+        countdownValueEl.textContent = `${drunkLeft}s`;
+      } else {
+        drunkLineEl.style.display = "none";
+      }
+
+      if (moveLeft > 0) {
+        moveLineEl.style.display = "flex";
+        moveValueEl.textContent = `${moveLeft}s`;
+      } else {
+        moveLineEl.style.display = "none";
+      }
+    }
+    setInterval(updateCountdown, 1000);
+
+    async function fetchInitialCountdown() {
+      try {
+        const res = await fetch('/time');
+        if (!res.ok) return;
+        const data = await res.json();
+        const offset = Date.now() - data.serverTime;
+
+        if (typeof data.countdownTime === "number" && typeof data.lastUpdated === "number") {
+          endTime = data.lastUpdated + data.countdownTime * 1000 + offset;
+        }
+        if (typeof data.moveTime === "number" && typeof data.moveUpdated === "number") {
+          endTimeMove = data.moveUpdated + data.moveTime * 1000 + offset;
+        }
+      } catch (e) {
+        console.error("Không thể lấy thời gian countdown:", e);
+      }
+    }
+    fetchInitialCountdown();
+    setInterval(fetchInitialCountdown, 3000);
+  </script>
+</body>
+</html>
